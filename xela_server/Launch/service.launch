@@ -1,0 +1,21 @@
+<launch>
+    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
+    <arg name="file" default="/etc/xela/xServ.ini"/>
+    <arg name="port" default="5000"/>
+    <arg name="ip" default="127.0.0.1"/>
+    <arg name="rbport" default="9090"/>
+    <arg name="rbip" default="localhost"/>
+    <arg name="d" default="0"/>
+    <arg name="showall" default="0"/>
+    <param name="param" value="$(arg file)"/>
+    <param name="param" value="$(arg port)"/>
+    <param name="param" value="$(arg ip)"/>
+    <param name="param" value="$(arg rbport)"/>
+    <param name="param" value="$(arg rbip)"/>
+    <param name="param" value="$(arg d)"/>
+    <param name="param" value="$(arg noserver)"/>
+    <group if="$(eval arg('noserver') == '0' or arg('noserver') == 0)">
+        <node pkg="xela_server" type="xela_server" name="xela_server" required="true" args="-f $(arg file) --port $(arg port) --ip $(arg ip)" />
+    </group>
+    <node pkg="xela_server" type="xela_service" name="xela_service" respawn="true" args="--port $(arg port) --ip $(arg ip) -d $(arg d) --rbport $(arg rbport) --rbip $(arg rbip) --showall" />
+</launch>

@@ -1,0 +1,14 @@
+squirrel_calibration:
+  readings_to_set_bias: 100
+  proximity:
+    A: 20.74
+    B: -0.18008
+    C: -17.28
+    max_voltage: [5.0, 4.97, 4.9, 4.9, 5.0, 5.0, 4.9, 5.0, 4.6]
+    zero_threshold: 0.05
+  tactile:
+    A: 3.341
+    B: 2.35
+    C: 0.1139
+    max_voltage: [2.0787, 2.2747, 1.5833]
+    zero_threshold: 0.01

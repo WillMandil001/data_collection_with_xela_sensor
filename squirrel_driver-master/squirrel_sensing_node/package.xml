@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>squirrel_sensing_node</name>
+  <version>0.0.0</version>
+  <description>The squirrel_sensing_node package</description>
+
+  <maintainer email="jelizaveta@todo.todo">jelizaveta</maintainer>
+  
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>roslib</depend>
+  <depend>ft17_driver</depend>
+
+</package>

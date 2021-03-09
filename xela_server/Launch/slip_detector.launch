@@ -1,0 +1,4 @@
+<launch>
+	<node pkg="xela_server" name="slip_detector.py" type="slip_detector.py" output="screen"/>
+	<node pkg="xela_server" name="xela_data_array_publisher__.py" type="xela_data_array_publisher__.py" output="screen"/>
+</launch>

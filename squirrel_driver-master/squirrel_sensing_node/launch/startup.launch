@@ -1,0 +1,5 @@
+<launch>
+  <arg name="fingers_device" value="/dev/ttyUSB0" >
+  <arg name="wrist_network" value="eth0" >
+  <node name="hand_sensors" pkg="squirrel_sensing_node" type="sensing" args="$(arg fingers_device) $(arg wrist_network)" output="screen"/>
+</launch>

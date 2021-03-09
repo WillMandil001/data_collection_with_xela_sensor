@@ -1,0 +1,17 @@
+<launch>
+  <rosparam command="load" file="$(find squirrel_sensing_node)/config/calibration.yaml"/>
+  <!-- start both calibrators -->
+  <node pkg="squirrel_sensing_node" type="calibrate_proximity" name="squirrel_calibrator_proximity" output="screen"/>
+  <!-- <node pkg="squirrel_sensing_node" type="calibrate_tactile" name="squirrel_calibrator_tactile" output="screen"/> -->
+  <!-- arduino for proximity sensors -->
+  <node pkg="rosserial_python" type="serial_node.py" name="squirrel_arduino_proximity">
+    <param name="port" value="/dev/ttyACM0"/>
+    <param name="baud" value="115200"/>
+  </node>
+  <!-- arduino for tactile sensors -->
+  <!-- <node pkg="rosserial_python" type="serial_node.py" name="squirrel_arduino_tactile">
+    <param name="port" value="/dev/ttyACM1"/>
+    <param name="baud" value="115200"/>
+  </node> -->
+  <node pkg="squirrel_marker_visualisation" type="marker_publisher" name="squirrel_markers"/>
+</launch>

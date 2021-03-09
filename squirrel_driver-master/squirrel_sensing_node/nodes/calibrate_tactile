@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+import rospy
+from std_msgs.msg import Int16MultiArray, Float64MultiArray
+
+
+class SquirrelCalibrator(object):
+    def __init__(self):
+        self._A = rospy.get_param("squirrel_calibration/tactile/A")
+        self._B = rospy.get_param("squirrel_calibration/tactile/B")
+        self._C = rospy.get_param("squirrel_calibration/tactile/C")
+        self._calib = rospy.get_param("squirrel_calibration/tactile/max_voltage")
+        self._zero_threshold = rospy.get_param("squirrel_calibration/tactile/zero_threshold")
+
+        self._bias=[]
+        self._readings_to_set_bias = rospy.get_param("squirrel_calibration/readings_to_set_bias", 10)
+        self._bias_readings = []
+
+        self._bias_calculated = False
+        self._publishers = {}
+        self._publishers['distance'] = rospy.Publisher(
+            "/tactileShadow/calibrated", Float64MultiArray, queue_size=1)
+        self._publishers['voltage'] = rospy.Publisher(
+            "/tactileShadow/voltage", Float64MultiArray, queue_size=1)
+        self._publishers['adjusted'] = rospy.Publisher(
+            "/tactileShadow/adjusted_voltage", Float64MultiArray, queue_size=1)
+        self._publishers['biased'] = rospy.Publisher(
+            "/tactileShadow/biased_voltage", Float64MultiArray, queue_size=1)
+        self._subscriber = rospy.Subscriber(
+            "/tactileShadow/raw", Int16MultiArray, self._raw_adc_callback, queue_size=1)
+
+    def _convert_to_voltage(self, values):
+        voltages = [float(raw_adc) / 1023.0 * 5.0 for raw_adc in values]
+        return voltages
+
+    def _convert_to_adjusted_voltage(self, voltages):
+        adjusted = [float(voltage) / (calibration) - 1.0 for voltage, calibration in zip(voltages, self._calib)]
+        return adjusted
+
+    def _convert_to_distance(self, voltages):
+        forces = []
+        for i, voltage in enumerate(voltages):
+            if voltage > self._zero_threshold:
+                calib_val = ((self._A*voltage*voltage)+(self._B*voltage)+self._C)
+                forces.append(calib_val) 
+            else:
+                forces.append(0)
+        return forces
+
+    def _calculate_bias(self, voltages):
+        if len(self._bias_readings) < self._readings_to_set_bias:
+            self._bias_readings.append(voltages)
+            return False
+        else:
+            self._bias = [0.0] * len(voltages)
+            for i in range(len(self._bias_readings)):
+                for j in range(len(self._bias_readings[i])):
+                    self._bias[j] += (self._bias_readings[i][j] / float(self._readings_to_set_bias))
+            rospy.loginfo("Bias calculated: " + str(self._bias))
+            return True
+
+    def _apply_bias(self, voltages):
+        return [voltage - bias for voltage, bias in zip(voltages, self._bias)]
+
+    def _publish_array(self, publisher, data):
+        output = Float64MultiArray()
+        output.data = data
+        self._publishers[publisher].publish(output)
+
+    def _raw_adc_callback(self, msg):
+        voltages = self._convert_to_voltage(msg.data)
+        self._publish_array('voltage', voltages)
+
+        adjusted = self._convert_to_adjusted_voltage(voltages)
+        self._publish_array('adjusted', adjusted)
+
+        if not self._bias_calculated:
+            self._bias_calculated = self._calculate_bias(adjusted)
+        else:
+            biased_voltage = self._apply_bias(adjusted)
+            self._publish_array('biased', biased_voltage)
+
+            forces = self._convert_to_distance(biased_voltage)
+            self._publish_array('distance', forces)
+
+if __name__== "__main__":
+    rospy.init_node("squirrel_calibration")
+    calibrator = SquirrelCalibrator()
+    rospy.spin()
