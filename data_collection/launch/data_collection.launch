@@ -1,40 +1,5 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- XELA SENSOR STUFF: -->
-  <rosparam command="load" file="$(find squirrel_sensing_node)/config/calibration.yaml"/>
-  <!-- start both calibrators -->
-  <node pkg="squirrel_sensing_node" type="calibrate_proximity" name="squirrel_calibrator_proximity" output="screen"/>
-  <!-- <node pkg="squirrel_sensing_node" type="calibrate_tactile" name="squirrel_calibrator_tactile" output="screen"/> -->
-  <!-- arduino for proximity sensors -->
-  <node pkg="rosserial_python" type="serial_node.py" name="squirrel_arduino_proximity">
-    <param name="port" value="/dev/ttyACM0"/>
-    <param name="baud" value="115200"/>
-  </node>
-
-  <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
-  <arg name="file" default="/etc/xela/xServ.ini"/>
-  <arg name="port" default="5000"/>
-  <arg name="ip" default="127.0.0.1"/>
-  <arg name="rbport" default="9090"/>
-  <arg name="rbip" default="localhost"/>
-  <arg name="d" default="0"/>
-  <arg name="showall" default="0"/>
-  <param name="param" value="$(arg file)"/>
-  <param name="param" value="$(arg port)"/>
-  <param name="param" value="$(arg ip)"/>
-  <param name="param" value="$(arg rbport)"/>
-  <param name="param" value="$(arg rbip)"/>
-  <param name="param" value="$(arg d)"/>
-  <param name="param" value="$(arg noserver)"/>
-  <group if="$(eval arg('noserver') == '0' or arg('noserver') == 0)">
-    <node pkg="xela_server" type="xela_server" name="xela_server" required="true" args="-f $(arg file) --port $(arg port) --ip $(arg ip)" />
-  </group>
-  <node pkg="xela_server" type="xela_service" name="xela_service" respawn="true" args="--port $(arg port) --ip $(arg ip) -d $(arg d) --rbport $(arg rbport) --rbip $(arg rbip) --showall" />
-
-  <node name="data_saver" pkg="xela_server" type="dataReader.py" output="screen"/>
-
-
-  <!-- Franka ROS stuff -->
   <arg name="robot_ip" default="172.16.0.2"/>
   <arg name="load_gripper" default="true"/>
 
@@ -50,6 +15,10 @@
   <!-- RVIZ -->
   <include file="$(find panda_moveit_config)/launch/moveit_rviz.launch" />
 
+  <!-- Data collection server -->
+  <!-- <node name="generate_data_sample" type="generate_data_sample.py" pkg="data_collection" /> -->
 
+  <!-- Data collection client -->
+  <!-- <node name="collect_dataset" type="collect_dataset.py" pkg="data_collection" /> -->
 
 </launch>
