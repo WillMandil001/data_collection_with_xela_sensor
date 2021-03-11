@@ -34,11 +34,9 @@
       <node pkg="xela_server" type="xela_server" name="xela_server" required="true" args="-f $(arg file) --port $(arg port) --ip $(arg ip)" />
   </group>
   <node pkg="xela_server" type="xela_service" name="xela_service" respawn="true" args="--port $(arg port) --ip $(arg ip) -d $(arg d) --rbport $(arg rbport) --rbip $(arg rbip) --showall" />
-
   <!-- <node name="data_saver" pkg="xela_server" type="dataReader.py" output="screen"/> -->
 
-
-
+  <!-- robot data -->
   <arg name="robot_ip" default="172.16.0.2"/>
   <arg name="load_gripper" default="true"/>
 
@@ -53,8 +51,5 @@
 
   <!-- RVIZ -->
   <include file="$(find panda_moveit_config)/launch/moveit_rviz.launch" />
-
-  <!-- Data collection client -->
-  <!-- <node name="collect_dataset" type="collect_dataset.py" pkg="data_collection" /> -->
 
 </launch>
