@@ -20,15 +20,15 @@ from pynput.keyboard import Key, Listener
 
 class RobotReader(object):
 	def __init__(self):
-		# super(RobotReader, self).__init__()
-		# self.robot_state = moveit_commander.RobotCommander()
-		# self.group = moveit_commander.MoveGroupCommander("panda_arm")
-		# self.group.set_end_effector_link("panda_hand")
-		# self.listener = tf.TransformListener()
-
+		super(RobotReader, self).__init__()
 		rospy.init_node('data_collection_client', anonymous=True, disable_signals=False)
-		rate = rospy.Rate(1000)
-	
+		rate = rospy.Rate(1)
+
+		self.robot_state = moveit_commander.RobotCommander()
+		self.group = moveit_commander.MoveGroupCommander("panda_arm")
+		self.group.set_end_effector_link("panda_hand")
+		self.listener = tf.TransformListener()
+
 		while raw_input("press enter to start saving data, or type ctrl c then n to not: ") != "n":
 			self.stop = False
 			self.xelaSensor1 = []
@@ -37,7 +37,6 @@ class RobotReader(object):
 			self.proximitySensor = []
 			self.listener = Listener(on_press=self.start_collection)
 			self.listener.start()
-			print("here1223")
 			print(self.stop)
 			print(rospy.is_shutdown())
 			self.xela_sub = message_filters.Subscriber('/xServTopic', XStream)
@@ -59,10 +58,13 @@ class RobotReader(object):
 			self.stop = False
 
 	def read_robot_data(self, robot_joint_data, xela_data, prox_data):
-		# print("Stop = False")
 		if self.stop == False and self.i != self.prev_i:
 			self.prev_i = self.i
-			self.robot_states.append(np.asarray([robot_joint_data.position, robot_joint_data.velocity, robot_joint_data.effort]).flatten())
+
+			ee_state = self.group.get_current_pose().pose
+			self.robot_states.append(list(robot_joint_data.position) + list(robot_joint_data.velocity) + list(robot_joint_data.effort) + 
+												[ee_state.position.x, ee_state.position.y, ee_state.position.z,
+												 ee_state.orientation.x, ee_state.orientation.y, ee_state.orientation.z, ee_state.orientation.w])
 			self.proximitySensor.append(prox_data.data[3])
 
 			Sensor1_data = xela_data.data[0]
@@ -127,17 +129,15 @@ class RobotReader(object):
 
 		robot_states_col = ["position_panda_joint1", "position_panda_joint2", "position_panda_joint3", "position_panda_joint4", "position_panda_joint5", "position_panda_joint6", "position_panda_joint7", "position_panda_finger_joint1", "position_panda_finger_joint2",
 		"velocity_panda_joint1", "velocity_panda_joint2", "velocity_panda_joint3", "velocity_panda_joint4", "velocity_panda_joint5", "velocity_panda_joint6", "velocity_panda_joint7", "velocity_panda_finger_joint1", "velocity_panda_finger_joint2",
-		"effort_panda_joint1", "panda_joint2", "effort_panda_joint3", "effort_panda_joint4", "panda_joint5", "effort_panda_joint6", "effort_panda_joint7", "effort_panda_finger_joint1", "effort_panda_finger_joint2"]
+		"effort_panda_joint1", "panda_joint2", "effort_panda_joint3", "effort_panda_joint4", "panda_joint5", "effort_panda_joint6", "effort_panda_joint7", "effort_panda_finger_joint1", "effort_panda_finger_joint2",
+		"ee_state_position_x", "ee_state_position_y", "ee_state_position_z", "ee_state_orientation_x", "ee_state_orientation_y", "ee_state_orientation_z", "ee_state_orientation_w"]
 
 		proximitySensor_col = ['tip_proximity']
 
-		T1.to_csv(folder + '/xelaSensor1_1.csv', header=xela_Sensor_col, index=False)
-		T2.to_csv(folder + '/xelaSensor2_1.csv', header=xela_Sensor_col, index=False)
-		T3.to_csv(folder + '/proximity_1.csv', header=proximitySensor_col, index=False)
-		T4.to_csv(folder + '/robot_data.csv', header=robot_states_col, index=False)
-
-	# def current_pose(self):
-	# 	return self.group.get_current_pose().pose
+		T1.to_csv(folder + '/xelaSensor1.csv', header=xela_Sensor_col, index=False)
+		T2.to_csv(folder + '/xelaSensor2.csv', header=xela_Sensor_col, index=False)
+		T3.to_csv(folder + '/proximity.csv', header=proximitySensor_col, index=False)
+		T4.to_csv(folder + '/robot_state.csv', header=robot_states_col, index=False)
 
 
 if __name__ == "__main__":
