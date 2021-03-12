@@ -44,9 +44,12 @@ class RobotReader(object):
 			self.prox_sub = message_filters.Subscriber('/proximityShadow/raw', Int16MultiArray)
 			self.robot_sub = message_filters.Subscriber('/joint_states', JointState)
 			print(datetime.datetime.now())
+			self.prev_i = 0
+			self.i = 1
 			while not rospy.is_shutdown() and self.stop is False:
 				self.ts = message_filters.ApproximateTimeSynchronizer([self.robot_sub, self.xela_sub, self.prox_sub], queue_size=1, slop=0.01, allow_headerless=True)
 				self.ts.registerCallback(self.read_robot_data)
+				self.i += 1
 				rate.sleep()
 			# rospy.signal_shutdown("reason is to stop collecting data")
 			print(datetime.datetime.now())
@@ -57,7 +60,8 @@ class RobotReader(object):
 
 	def read_robot_data(self, robot_joint_data, xela_data, prox_data):
 		# print("Stop = False")
-		if self.stop == False:
+		if self.stop == False and self.i != self.prev_i:
+			self.prev_i = self.i
 			self.robot_states.append(np.asarray([robot_joint_data.position, robot_joint_data.velocity, robot_joint_data.effort]).flatten())
 			self.proximitySensor.append(prox_data.data[3])
 
@@ -77,12 +81,6 @@ class RobotReader(object):
 
 			self.xelaSensor1.append(Sensor1_vector)
 			self.xelaSensor2.append(Sensor2_vector)
-
-		# elif self.stop == True:
-			# self.robot_sub.unregister()
-			# self.xela_sub.unregister()
-			# self.prox_sub.unregister()
-			# rospy.signal_shutdown("reason is to stop collecting data")
 
 	def start_collection(self, key):
 		print("herer")
