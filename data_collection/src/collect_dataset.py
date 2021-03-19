@@ -5,6 +5,7 @@ import sys
 import rospy
 import datetime
 import keyboard
+import actionlib
 import numpy as np
 import pandas as pd
 import message_filters
@@ -16,18 +17,27 @@ from std_msgs.msg import Int16MultiArray
 from xela_server.msg import XStream
 from sensor_msgs.msg import JointState
 from pynput.keyboard import Key, Listener
-
+from franka_gripper.msg import HomingAction
+from franka_gripper.msg import MoveAction, MoveActionGoal, GraspAction, GraspActionGoal
 
 class RobotReader(object):
 	def __init__(self):
 		super(RobotReader, self).__init__()
 		rospy.init_node('data_collection_client', anonymous=True, disable_signals=False)
-		rate = rospy.Rate(1)
+		# self.rate_hz = 1000
+		# rate = rospy.Rate(self.rate_hz)
 
 		self.robot_state = moveit_commander.RobotCommander()
 		self.group = moveit_commander.MoveGroupCommander("panda_arm")
 		self.group.set_end_effector_link("panda_hand")
-		self.listener = tf.TransformListener()
+		self.listenertf = tf.TransformListener()
+		self.gripper = GripperClient()
+		self.grip_speed = None
+		self.grip_position = None
+
+		# self.gripper.move_action(self.grip_speed, self.grip_position)
+		# state = self.gripper.homing_action()
+		# self.gripper.grasp_action(0.06, 0.2, 20.0)
 
 		while raw_input("press enter to start saving data, or type ctrl c then n to not: ") != "n":
 			self.stop = False
@@ -38,51 +48,58 @@ class RobotReader(object):
 			self.listener = Listener(on_press=self.start_collection)
 			self.listener.start()
 			print(self.stop)
-			print(rospy.is_shutdown())
+			# print(rospy.is_shutdown())
 			self.xela_sub = message_filters.Subscriber('/xServTopic', XStream)
 			self.prox_sub = message_filters.Subscriber('/proximityShadow/raw', Int16MultiArray)
 			self.robot_sub = message_filters.Subscriber('/joint_states', JointState)
+			subscribers = [self.robot_sub, self.xela_sub, self.prox_sub]
 			print(datetime.datetime.now())
 			self.prev_i = 0
 			self.i = 1
+			self.index__ = 0
+			self.ts = message_filters.ApproximateTimeSynchronizer(subscribers, queue_size=50, slop=100, allow_headerless=True)
+			self.ts.registerCallback(self.read_robot_data)
 			while not rospy.is_shutdown() and self.stop is False:
-				self.ts = message_filters.ApproximateTimeSynchronizer([self.robot_sub, self.xela_sub, self.prox_sub], queue_size=1, slop=0.01, allow_headerless=True)
-				self.ts.registerCallback(self.read_robot_data)
 				self.i += 1
-				rate.sleep()
+				# rate.sleep()
 			# rospy.signal_shutdown("reason is to stop collecting data")
+			self.stop = False
 			print(datetime.datetime.now())
 			print("\n Stopped the data collection \n now saving the stored data")
 			self.listener.stop()
 			self.save_data()
-			self.stop = False
 
 	def read_robot_data(self, robot_joint_data, xela_data, prox_data):
 		if self.stop == False and self.i != self.prev_i:
+			print("collecting: ", self.index__)
 			self.prev_i = self.i
-
-			ee_state = self.group.get_current_pose().pose
-			self.robot_states.append(list(robot_joint_data.position) + list(robot_joint_data.velocity) + list(robot_joint_data.effort) + 
-												[ee_state.position.x, ee_state.position.y, ee_state.position.z,
-												 ee_state.orientation.x, ee_state.orientation.y, ee_state.orientation.z, ee_state.orientation.w])
-			self.proximitySensor.append(prox_data.data[3])
-
-			Sensor1_data = xela_data.data[0]
-			Sensor2_data = xela_data.data[1]
-			Sensor1_vector = np.zeros((1, 48))
-			Sensor2_vector = np.zeros((1, 48))
-
-			xela_vector = np.zeros((1, 96))
-			for index, i in enumerate(range(0, 48, 3)):
-				Sensor1_vector[0, i]     = Sensor1_data.xyz[index].x
-				Sensor1_vector[0, i + 1] = Sensor1_data.xyz[index].y
-				Sensor1_vector[0, i + 2] = Sensor1_data.xyz[index].z
-				Sensor2_vector[0, i]     = Sensor2_data.xyz[index].x
-				Sensor2_vector[0, i + 1] = Sensor2_data.xyz[index].y
-				Sensor2_vector[0, i + 2] = Sensor2_data.xyz[index].z
-
-			self.xelaSensor1.append(Sensor1_vector)
-			self.xelaSensor2.append(Sensor2_vector)
+			self.index__ +=1
+			# self.robot_states.append(robot_joint_data)
+			# self.xelaSensor1.append(xela_data.data[0])
+			# self.xelaSensor2.append(xela_data.data[1])
+			# self.proximitySensor.append(prox_data.data[3])
+			# ee_state = self.group.get_current_pose().pose
+			# self.robot_states.append(list(robot_joint_data.position) + list(robot_joint_data.velocity) + list(robot_joint_data.effort) + 
+												# [ee_state.position.x, ee_state.position.y, ee_state.position.z,
+												 # ee_state.orientation.x, ee_state.orientation.y, ee_state.orientation.z, ee_state.orientation.w])
+			# self.proximitySensor.append(prox_data.data[3])
+# 
+			# Sensor1_data = xela_data.data[0]
+			# Sensor2_data = xela_data.data[1]
+			# Sensor1_vector = np.zeros((1, 48))
+			# Sensor2_vector = np.zeros((1, 48))
+# 
+			# xela_vector = np.zeros((1, 96))
+			# for index, i in enumerate(range(0, 48, 3)):
+				# Sensor1_vector[0, i]     = Sensor1_data.xyz[index].x
+				# Sensor1_vector[0, i + 1] = Sensor1_data.xyz[index].y
+				# Sensor1_vector[0, i + 2] = Sensor1_data.xyz[index].z
+				# Sensor2_vector[0, i]     = Sensor2_data.xyz[index].x
+				# Sensor2_vector[0, i + 1] = Sensor2_data.xyz[index].y
+				# Sensor2_vector[0, i + 2] = Sensor2_data.xyz[index].z
+# 
+			# self.xelaSensor1.append(Sensor1_vector)
+			# self.xelaSensor2.append(Sensor2_vector)
 
 	def start_collection(self, key):
 		print("herer")
@@ -92,6 +109,36 @@ class RobotReader(object):
 			self.robot_sub.unregister()
 			self.xela_sub.unregister()
 			self.prox_sub.unregister()
+
+
+	# def format_data_for_saving(self):
+	# 	print("Formating the data")
+
+	# 	for  in range(len(self.xelaSensor1)):
+	# 	ee_state = self.group.get_current_pose().pose
+	# 	self.robot_states_formated.append(list(robot_joint_data.position) + list(robot_joint_data.velocity) + list(robot_joint_data.effort) + 
+	# 										[ee_state.position.x, ee_state.position.y, ee_state.position.z,
+	# 										 ee_state.orientation.x, ee_state.orientation.y, ee_state.orientation.z, ee_state.orientation.w])
+
+	# 	Sensor1_data = self.xelaSensor1[data_sample_index].data[0]
+	# 	Sensor2_data = self.xelaSensor2[data_sample_index].data[1]
+	# 	Sensor1_vector = np.zeros((1, 48))
+	# 	Sensor2_vector = np.zeros((1, 48))
+
+	# 	xela_vector = np.zeros((1, 96))
+	# 	for index, i in enumerate(range(0, 48, 3)):
+	# 		Sensor1_vector[0, i]     = Sensor1_data.xyz[index].x
+	# 		Sensor1_vector[0, i + 1] = Sensor1_data.xyz[index].y
+	# 		Sensor1_vector[0, i + 2] = Sensor1_data.xyz[index].z
+	# 		Sensor2_vector[0, i]     = Sensor2_data.xyz[index].x
+	# 		Sensor2_vector[0, i + 1] = Sensor2_data.xyz[index].y
+	# 		Sensor2_vector[0, i + 2] = Sensor2_data.xyz[index].z
+
+	# 	self.xelaSensor1Formatted.append(Sensor1_vector)
+	# 	self.xelaSensor2Formatted.append(Sensor2_vector)
+
+
+
 
 	def save_data(self):
 		self.xelaSensor1
@@ -134,11 +181,70 @@ class RobotReader(object):
 
 		proximitySensor_col = ['tip_proximity']
 
-		T1.to_csv(folder + '/xelaSensor1.csv', header=xela_Sensor_col, index=False)
-		T2.to_csv(folder + '/xelaSensor2.csv', header=xela_Sensor_col, index=False)
+		T1.to_csv(folder + '/xela_sensor1.csv', header=xela_Sensor_col, index=False)
+		T2.to_csv(folder + '/xela_sensor2.csv', header=xela_Sensor_col, index=False)
 		T3.to_csv(folder + '/proximity.csv', header=proximitySensor_col, index=False)
 		T4.to_csv(folder + '/robot_state.csv', header=robot_states_col, index=False)
 
+		# Create meta data
+		save = raw_input("save meta file? 'n' to not")
+		if save != 'n':
+			meta_data = ['object_type', 'video', 'slipping', 'dropped', 'notes/comments']
+			meta_data_ans = []
+			for info in meta_data:
+				value = raw_input(str("please enter the " + info))
+				meta_data_ans.append(value)
+			meta_data.extend(('sensor_type', 'frequency_hz', 'gripper_position', 'gripper_speed'))
+			meta_data_ans.extend(('xela_2fingers_noglove', str(self.rate_hz), str(self.grip_position), str(self.grip_speed)))
+			meta_data_ans = np.array([meta_data_ans])
+			T5 = pd.DataFrame(meta_data_ans)
+			T5.to_csv(folder + '/meta_data.csv', header=meta_data, index=False)
+
+
+class GripperClient():
+	def __init__(self):
+		self.robot_state = moveit_commander.RobotCommander()
+		self.group = moveit_commander.MoveGroupCommander("hand")
+		self.listener = tf.TransformListener()
+		self.scene = moveit_commander.PlanningSceneInterface()
+
+	def current_state(self):
+		joint_state = self.group.get_current_joint_values()
+		return joint_state
+
+	def homing_action(self):
+		client = actionlib.SimpleActionClient("/franka_gripper/homing", HomingAction)
+		client.wait_for_server()
+		client.send_goal(True)
+		homing_done = client.wait_for_result()
+		print("#### homing gripper ...")
+		return homing_done
+
+	def grasp_action(self, width, speed, force):
+		client = actionlib.SimpleActionClient("/franka_gripper/grasp", GraspAction)
+		client.wait_for_server()
+		goal = GraspActionGoal()
+		goal.goal.width = width
+		goal.goal.speed = speed
+		goal.goal.force = force
+		print(GraspActionGoal())
+
+		client.send_goal(goal.goal)
+		move_done = client.wait_for_result()
+
+		print(move_done)
+
+	def move_action(self, w, s):
+		client = actionlib.SimpleActionClient("/franka_gripper/move", MoveAction)
+		client.wait_for_server()
+		goal = MoveActionGoal
+		goal.width = w
+		goal.speed = s
+		client.send_goal(goal)
+		print("#### moving gripper to set width=", goal.width, "set speed=", goal.speed)
+		move_done = client.wait_for_result()
+
+		return move_done
 
 if __name__ == "__main__":
 	robot_reader = RobotReader()
